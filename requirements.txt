@@ -1,0 +1,11 @@
+flask
+werkzeug
+google-generativeai
+Pillow
+transformers
+torch
+accelerate
+opencv-python
+moviepy
+python-dotenv
+ultralytics

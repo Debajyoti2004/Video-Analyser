@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Advanced Conversational Video Agent</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
+  </head>
+  <body>
+    <div id="app-container">
+      <header class="app-header">
+        <h1>Advanced Conversational Video Agent</h1>
+        <p>
+          See, hear, and understand your video content through a conversation
+          with AI.
+        </p>
+      </header>
+
+      <main id="main-content">
+        <div id="upload-view">
+          <div class="file-drop-zone">
+            <input
+              type="file"
+              id="video-upload-input"
+              accept="video/*"
+              class="file-input"
+            />
+            <div class="drop-zone-prompt">
+              <svg
+                class="upload-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              <p>Drag & Drop a video file here</p>
+              <span class="prompt-separator">or</span>
+              <button type="button" class="browse-btn">Browse Files</button>
+            </div>
+          </div>
+          <div class="analysis-options">
+            <h4>Analysis Options</h4>
+            <label
+              ><input type="radio" name="analysis_type" value="full" checked />
+              Full Analysis (Vision + Audio)</label
+            >
+            <label
+              ><input type="radio" name="analysis_type" value="vision_only" />
+              Vision Only</label
+            >
+            <label
+              ><input type="radio" name="analysis_type" value="audio_only" />
+              Audio Only (Fast Transcription)</label
+            >
+          </div>
+        </div>
+
+        <div id="analysis-view" class="hidden">
+          <div class="video-main-panel">
+            <div class="video-player-wrapper">
+              <video id="video-player" controls></video>
+              <canvas id="overlay-canvas"></canvas>
+            </div>
+            <div class="video-controls">
+              <button id="zoom-in-btn" title="Zoom In">+</button>
+              <button id="zoom-out-btn" title="Zoom Out">-</button>
+              <button id="zoom-reset-btn" title="Reset Zoom">Reset</button>
+            </div>
+          </div>
+          <div class="right-panel">
+            <div class="timeline-panel">
+              <div class="panel-header">
+                <h3>Events Timeline</h3>
+                <button id="export-btn" class="hidden">Export Results</button>
+              </div>
+              <div id="events-timeline" class="scrollable-content">
+                <p class="placeholder">Analysis results will appear here...</p>
+              </div>
+            </div>
+            <div class="chat-panel">
+              <div
+                class="chat-window scrollable-content"
+                id="chat-window"
+              ></div>
+              <div id="suggested-prompts" class="hidden"></div>
+              <div class="status-bar" id="status-bar">
+                <div class="progress-bar-container">
+                  <div id="progress-bar"></div>
+                </div>
+                <span id="status-text"></span>
+              </div>
+              <div class="chat-input-area">
+                <input
+                  type="text"
+                  id="chat-input"
+                  placeholder="Ask about the video..."
+                  disabled
+                />
+                <button id="send-chat-btn" disabled>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+  </body>
+</html>

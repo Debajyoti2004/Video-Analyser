@@ -1,0 +1,32 @@
+# Environment variables - SECURITY
+# Never commit your secret API keys!
+.env
+
+# Python virtual environment folders
+# These are specific to your local machine and can be large.
+venv/
+env/
+.venv/
+
+# Python cache and compiled files
+# These are generated automatically by Python.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# User-generated content folders
+# Do not commit user-uploaded videos or temporary audio files.
+uploads/
+temp_audio/
+
+# IDE and editor configuration folders
+# These are specific to a developer's local setup.
+.vscode/
+.idea/
+.DS_Store
+
+# Ultralytics/YOLO generated files
+# Ignore any settings or log files created by the YOLO model.
+.yolov8/
+yolov8n.pt
