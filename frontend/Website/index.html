@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Assistant</title>
+    <!-- Bootstrap Icons CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+
+    <!-- Header for mobile view -->
+    <header class="mobile-header">
+        <button class="icon-button" id="hamburgerMenu"><i class="bi bi-list"></i></button>
+        <button class="icon-button theme-toggle-btn">
+            <i class="bi bi-sun-fill"></i>
+            <i class="bi bi-moon-fill"></i>
+        </button>
+    </header>
+
+    <!-- Sidebar for mobile view (populated by JS) -->
+    <aside class="mobile-sidebar" id="mobileSidebar"></aside>
+    <div class="overlay" id="overlay"></div>
+
+    <div class="app-container">
+        <!-- Column 1: User & History -->
+        <aside class="column column-left" id="column-left">
+            <div id="user-section-desktop" class="user-section">
+                <i class="bi bi-person-circle user-avatar"></i>
+                <span class="username">User</span>
+            </div>
+            <div id="history-section-desktop" class="history-section">
+                <h4>Query History</h4>
+                <ul id="historyListDesktop">
+                    <!-- History items will be added here -->
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Resizer 1 -->
+        <div class="resizer" id="resizer-left"></div>
+
+        <!-- Column 2: Upload -->
+        <main class="column column-center" id="column-center">
+            <div id="upload-section-desktop">
+                <h3>Upload a video or image</h3>
+                <div class="upload-area">
+                    <div class="upload-placeholder">
+                        <i class="bi bi-image-alt upload-icon"></i>
+                        <p>Click to upload or drag & drop</p>
+                    </div>
+                    <video class="video-preview" controls></video>
+                    <img class="image-preview" alt="Image Preview">
+                </div>
+                <button class="upload-button">Upload</button>
+                <input type="file" id="fileInput" accept="video/*,image/*" hidden>
+                <div class="progress-container">
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar"></div>
+                    </div>
+                    <span class="progress-text">0%</span>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Resizer 2 -->
+        <div class="resizer" id="resizer-right"></div>
+
+        <!-- Column 3: Chat -->
+        <aside class="column column-right" id="column-right">
+            <div class="chat-header">
+                <h3>Query</h3>
+                <button class="icon-button theme-toggle-btn">
+                    <i class="bi bi-sun-fill"></i>
+                    <i class="bi bi-moon-fill"></i>
+                </button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- Chat messages will appear here -->
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="queryInput" placeholder="Ask your question...">
+                <button id="askButton" class="icon-button">
+                    <span class="ask-text"><i class="bi bi-arrow-up"></i></span>
+                    <div class="loader" style="display: none;"></div>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
