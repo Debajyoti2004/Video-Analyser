@@ -1,32 +1,55 @@
-# Environment variables - SECURITY
-# Never commit your secret API keys!
+# --- Environment Variables - SECURITY ---
+# Never commit your secret API keys or configuration files!
 .env
 
-# Python virtual environment folders
-# These are specific to your local machine and can be large.
+# --- Python Virtual Environments ---
+# These are specific to your local machine, can be large, and should be regenerated from requirements.txt.
 venv/
 env/
 .venv/
+.env/
 
-# Python cache and compiled files
-# These are generated automatically by Python.
+# --- Python Cache & Compiled Files ---
+# These are generated automatically by Python and can be safely ignored.
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+dist/
+build/
 
-# User-generated content folders
-# Do not commit user-uploaded videos or temporary audio files.
+# --- User-Generated & Tool-Generated Content ---
+# Do not commit user data or files created by the agent's tools.
+# These should be generated at runtime.
 uploads/
 temp_audio/
+snapshots/
+clips/
+reports/
 
-# IDE and editor configuration folders
+# --- Local Databases ---
+# Do not commit local database files. These are specific to your machine's state.
+chroma_db/
+knowledge_graph.gml
+
+# --- IDE & Editor Configuration ---
 # These are specific to a developer's local setup.
 .vscode/
 .idea/
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
 .DS_Store
 
+# --- Machine Learning Models & Logs ---
+# Do not commit large model files. These should be downloaded on first run or as part of a setup script.
 # Ultralytics/YOLO generated files
-# Ignore any settings or log files created by the YOLO model.
 .yolov8/
-yolov8n.pt
+*.pt
+
+# --- General Log Files ---
+*.log
+*.log.*
