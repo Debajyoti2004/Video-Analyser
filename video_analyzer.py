@@ -1,158 +1,157 @@
 import os
-import cv2
+import re
+import json
+import asyncio
 import torch
 from moviepy import VideoFileClip
-from transformers import pipeline
-from PIL import Image
 import google.generativeai as genai
-from ultralytics import YOLO
+from transformers import pipeline
+import config
+from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Event(BaseModel):
+    timestamp: float = Field(description="The exact time in seconds (float) where the event begins.")
+    type: str = Field(description="The category of the event. Choose from: 'Action', 'Movement', 'Vehicle', 'Hazard', 'Notable Moment', 'Dialogue'.")
+    description: str = Field(description="A clinical, one-sentence description of the specific event.")
+
+class ExtractedEntity(BaseModel):
+    entity_id: int = Field(description="A unique integer ID for this entity (e.g., 1, 2).")
+    type: str = Field(description="The type of entity (e.g., 'Vehicle', 'Person', 'Object').")
+    description: str = Field(description="A detailed description of the entity, including its appearance (e.g., 'blue sedan', 'person in red jacket'). If any text like a license plate is visible on the entity, include it here.")
+    first_seen_timestamp: float = Field(description="The timestamp when this entity first appears or becomes relevant.")
+
+class VideoAnalysisResult(BaseModel):
+    title: str = Field(description="A concise, impactful, newspaper-style headline summarizing the video's core event.")
+    overall_summary: str = Field(description="A comprehensive, narrative paragraph describing the video's context, the sequence of events, and the final outcome, integrating key visual and auditory information. Write this as if you are giving a formal briefing.")
+    sentiment: str = Field(description="The single most descriptive emotional tone of the video (e.g., 'Calm', 'Tense', 'Chaotic', 'Joyful').")
+    key_topics: List[str] = Field(description="A list of 3-5 primary keywords or themes (e.g., 'Traffic Incident', 'Public Safety', 'Product Demonstration').")
+    extracted_entities: List[ExtractedEntity] = Field(description="A list of key entities (vehicles, people, important objects) involved in the main events. Assign a unique ID to each.")
+    event_log: List[Event] = Field(description="A detailed log of timestamped events.")
 
 class VideoAnalyzer:
-    def __init__(self, video_path, temp_audio_dir):
-        self.video_path = video_path
-        self.temp_audio_dir = temp_audio_dir
+    def __init__(self, console):
+        self.console = console
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.console.print(f"INFO: Initializing local Whisper model on: [bold yellow]{self.device.upper()}[/bold yellow]")
+        self.transcriber = pipeline("automatic-speech-recognition", model="openai/whisper-base", device=self.device)
         
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable is not set.")
-        genai.configure(api_key=api_key)
-        
-        self.vision_model = genai.GenerativeModel('gemini-pro-vision')
-        self.detection_model = YOLO('yolov8n.pt')
-        
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.transcriber = pipeline(
-            "automatic-speech-recognition", model="openai/whisper-base", device=device
-        )
+        if not config.GOOGLE_API_KEY:
+            raise ValueError("GOOGLE_API_KEY is not set.")
+        genai.configure(api_key=config.GOOGLE_API_KEY)
+        self.gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
+        self.output_parser = PydanticOutputParser(pydantic_object=VideoAnalysisResult)
 
-    def analyze(self, update_callback, analysis_type='full'):
-        transcript = []
-        scenes = []
-        
-        do_audio = analysis_type in ['full', 'audio_only']
-        do_vision = analysis_type in ['full', 'vision_only']
+    async def analyze(self, video_path: str, update_callback):
+        update_callback(0, "Starting initial high-level analysis...")
+        transcript_data = await self._extract_and_transcribe_audio(video_path, update_callback)
+        gemini_analysis_data = await self._analyze_video_with_gemini(video_path, transcript_data, update_callback)
+        update_callback(100, "Initial analysis complete!")
+        return gemini_analysis_data
 
-        if do_audio:
-            update_callback(0, "Extracting audio...")
-            audio_path = self._extract_audio()
-            
-            update_callback(15, "Transcribing audio...")
-            transcript = self._transcribe_audio(audio_path)
-            if audio_path and os.path.exists(audio_path):
-                os.remove(audio_path)
-        
-        if do_vision:
-            start_progress = 30 if do_audio else 0
-            update_callback(start_progress, "Analyzing visual scenes...")
-            scenes = self._analyze_visual_scenes(update_callback, start_progress)
-        
-        update_callback(100, "Analysis complete!")
-        return {"transcript": transcript, "scenes": scenes}
-
-    def _extract_audio(self):
-        audio_path = None
-        try:
-            with VideoFileClip(self.video_path) as video_clip:
-                if video_clip.audio:
-                    audio_filename = f"{os.path.splitext(os.path.basename(self.video_path))[0]}.wav"
-                    audio_path = os.path.join(self.temp_audio_dir, audio_filename)
-                    video_clip.audio.write_audiofile(audio_path, codec='pcm_s16le')
-        except Exception as e:
-            print(f"Could not extract audio: {e}")
-        return audio_path
-
-    def _transcribe_audio(self, audio_path):
-        if not audio_path:
-            return []
-        try:
-            transcription = self.transcriber(audio_path, chunk_length_s=30, return_timestamps=True)
+    async def _extract_and_transcribe_audio(self, video_path, cb):
+        def _blocking_extract():
+            with VideoFileClip(video_path) as video:
+                if not video.audio: return None
+                fname = f"{os.path.splitext(os.path.basename(video_path))[0]}.wav"
+                apath = os.path.join(config.TEMP_AUDIO_DIR, fname)
+                video.audio.write_audiofile(apath, codec='pcm_s16le', logger=None)
+                return apath
+        cb(5, "Extracting audio...")
+        audio_path = await asyncio.to_thread(_blocking_extract)
+        if audio_path and os.path.exists(audio_path):
+            cb(15, "Transcribing full audio with Whisper...")
+            transcription = await asyncio.to_thread(self.transcriber, audio_path, chunk_length_s=30, return_timestamps=True)
+            os.remove(audio_path)
             return transcription.get('chunks', [])
-        except Exception as e:
-            print(f"Audio transcription failed: {e}")
-            return []
+        return []
 
-    def _analyze_visual_scenes(self, update_callback, start_progress=30):
-        scenes = []
-        cap = cv2.VideoCapture(self.video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
+    async def _analyze_video_with_gemini(self, video_path, transcript_data, cb):
+        cb(25, "Uploading video to Gemini...")
+        video_file = await asyncio.to_thread(genai.upload_file, path=video_path)
+        while video_file.state.name == "PROCESSING":
+            await asyncio.sleep(5)
+            cb(40, "Processing video...")
+            video_file = await asyncio.to_thread(genai.get_file, video_file.name)
+        if video_file.state.name == "FAILED":
+            raise ValueError("Google AI File API failed to process video.")
         
-        key_frame_indices = self._detect_key_frames(cap)
-        cap.release()
+        cb(60, "Generating summary with Gemini...")
+        prompt = self._get_gemini_analysis_prompt(transcript_data)
         
-        end_progress = 100
-        progress_range = end_progress - start_progress
-
-        for idx, frame_index in enumerate(key_frame_indices):
-            progress = start_progress + (idx / len(key_frame_indices) * progress_range) if key_frame_indices else 100
-            update_callback(progress, f"Describing & detecting in scene {idx + 1}/{len(key_frame_indices)}")
-
-            temp_cap = cv2.VideoCapture(self.video_path)
-            temp_cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-            ret, frame = temp_cap.read()
-            if ret:
-                timestamp = frame_index / fps
-                pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                
-                description = self._get_gemini_description(pil_image, timestamp)
-                detected_objects = self._get_yolo_detections(frame)
-                
-                scenes.append({
-                    "timestamp": timestamp,
-                    "description": description,
-                    "objects": detected_objects
-                })
-            temp_cap.release()
-            
-        return scenes
-
-    def _detect_key_frames(self, cap):
-        key_frame_indices = []
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        prev_hist = None
-        scene_detection_threshold = 0.6
-        frame_interval = max(1, int(cap.get(cv2.CAP_PROP_FPS)))
-
-        for i in range(0, total_frames, frame_interval):
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            ret, frame = cap.read()
-            if not ret: break
-            
-            hist = cv2.calcHist([frame], [0, 1, 2], None, [8, 8, 8], [0, 256] * 3)
-            cv2.normalize(hist, hist)
-            
-            if prev_hist is not None:
-                correlation = cv2.compareHist(prev_hist, hist, cv2.HISTCMP_CORREL)
-                if correlation < scene_detection_threshold:
-                    key_frame_indices.append(i)
-            elif i == 0:
-                key_frame_indices.append(i)
-            prev_hist = hist
-            
-        return key_frame_indices
-
-    def _get_gemini_description(self, pil_image, timestamp):
         try:
-            response = self.vision_model.generate_content(
-                ["Describe this scene in detail. What objects are present, what are they doing, and what is the overall environment?", pil_image]
-            )
-            return response.text
+            response = await self.gemini_model.generate_content_async([prompt, video_file])
+            parsed_output = self.output_parser.parse(response.text)
+            return parsed_output.model_dump()
         except Exception as e:
-            print(f"Gemini Vision API call failed at {timestamp:.2f}s: {e}")
-            return "Visual analysis for this scene failed."
+            self.console.print(f"[bold red]Error parsing Gemini response: {e}[/bold red]")
+            raise ValueError("Failed to parse JSON response from Gemini after processing.")
+        finally:
+            await asyncio.to_thread(genai.delete_file, video_file.name)
 
-    def _get_yolo_detections(self, frame):
-        objects = []
-        results = self.detection_model(frame, verbose=False)
-        for result in results:
-            boxes = result.boxes
-            for box in boxes:
-                x1, y1, x2, y2 = [int(i) for i in box.xyxy[0]]
-                label = self.detection_model.names[int(box.cls)]
-                confidence = float(box.conf)
-                if confidence > 0.4:
-                    objects.append({
-                        "label": label,
-                        "box": [x1, y1, x2 - x1, y2 - y1],
-                        "confidence": confidence
-                    })
-        return objects
+    def _get_gemini_analysis_prompt(self, transcript_chunks):
+        full_transcript = " ".join([chunk['text'] for chunk in transcript_chunks])
+        format_instructions = self.output_parser.get_format_instructions()
+        
+        return f"""**Role**: Elite AI Multimedia Triage Analyst 'Observer'. Your mission is to perform a high-level forensic analysis of the provided video and its audio transcript. Your goal is to identify key events and, most importantly, to proactively extract details about the primary entities involved. Your analysis will serve as the foundational intelligence briefing for a tool-using AI agent.
+
+**Instructions**:
+1.  **Synthesize All Data**: Watch the entire video and read the provided audio transcript. Your summary must integrate both visual events and spoken dialogue.
+2.  **Identify Primary Entities**: Pinpoint the most significant actors in the video (e.g., the car that caused an accident, the person who was the focus of an event). Assign a unique integer ID to each.
+3.  **Extract Critical Details**: For each primary entity, describe it in detail. **Crucially, if you can clearly read any text on an entity (like a license plate on a car or a name on a shirt), you MUST include that text in its description.**
+4.  **Log Key Events**: Create a chronological log of the most important moments.
+5.  **Structure the Output**: Generate a single, flawless JSON object that strictly adheres to the provided schema instructions. Do not add any text, explanations, or markdown formatting outside of the JSON object itself.
+
+**Full Audio Transcript**:
+---
+{full_transcript}
+---
+
+{format_instructions}
+"""
+
+if __name__ == '__main__':
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+    from dotenv import load_dotenv
+
+    async def test_analyzer():
+        load_dotenv()
+        console = Console()
+        console.print(Panel("[bold magenta]🎬 VideoAnalyzer Standalone Test 🎬[/bold magenta]", border_style="green"))
+        
+        test_video_path = config.VIDEO_PATH
+        temp_audio_folder = config.TEMP_AUDIO_DIR
+        
+        if not os.path.exists(test_video_path):
+            console.print(Panel(f"[bold red]Error:[/bold red] Test video not found at '[cyan]{test_video_path}[/cyan]'", border_style="red"))
+            return
+
+        if not os.path.exists(temp_audio_folder):
+            os.makedirs(temp_audio_folder)
+        
+        console.print("\n[bold blue]Step 1: Initializing Analyzer...[/bold blue]")
+        try:
+            analyzer = VideoAnalyzer(console=console)
+            console.print("[green]✅ Initialization complete.[/green]")
+
+            console.print("\n[bold blue]Step 2: Starting Full Video Analysis...[/bold blue]")
+            
+            def test_callback(p, s):
+                console.print(f"  [yellow]Progress: {int(p)}% - {s}[/yellow]")
+            
+            analysis_results = await analyzer.analyze(test_video_path, test_callback)
+            
+            console.print("\n[bold blue]Step 3: Analysis Complete. Results:[/bold blue]")
+            json_str = json.dumps(analysis_results, indent=2)
+            syntax = Syntax(json_str, "json", theme="monokai", line_numbers=True)
+            console.print(Panel(syntax, title="[bold green]📊 Final Analysis Output (JSON)[/bold green]", border_style="green"))
+
+        except Exception as e:
+            console.print(Panel(f"[bold red]An error occurred during the test:[/bold red]\n{e}", border_style="red"))
+
+        console.print(Panel("[bold magenta]🏁 Test complete 🏁[/bold magenta]", border_style="green"))
+
+    asyncio.run(test_analyzer())
