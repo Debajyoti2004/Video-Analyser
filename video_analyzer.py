@@ -93,7 +93,6 @@ class VideoAnalyzer:
     def _get_gemini_analysis_prompt(self, transcript_chunks):
         full_transcript = " ".join([chunk['text'] for chunk in transcript_chunks])
         format_instructions = self.output_parser.get_format_instructions()
-        
         return f"""**Role**: Elite AI Multimedia Triage Analyst 'Observer'. Your mission is to perform a high-level forensic analysis of the provided video and its audio transcript. Your goal is to identify key events and, most importantly, to proactively extract details about the primary entities involved. Your analysis will serve as the foundational intelligence briefing for a tool-using AI agent.
 
 **Instructions**:
@@ -110,48 +109,3 @@ class VideoAnalyzer:
 
 {format_instructions}
 """
-
-if __name__ == '__main__':
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.syntax import Syntax
-    from dotenv import load_dotenv
-
-    async def test_analyzer():
-        load_dotenv()
-        console = Console()
-        console.print(Panel("[bold magenta]🎬 VideoAnalyzer Standalone Test 🎬[/bold magenta]", border_style="green"))
-        
-        test_video_path = config.VIDEO_PATH
-        temp_audio_folder = config.TEMP_AUDIO_DIR
-        
-        if not os.path.exists(test_video_path):
-            console.print(Panel(f"[bold red]Error:[/bold red] Test video not found at '[cyan]{test_video_path}[/cyan]'", border_style="red"))
-            return
-
-        if not os.path.exists(temp_audio_folder):
-            os.makedirs(temp_audio_folder)
-        
-        console.print("\n[bold blue]Step 1: Initializing Analyzer...[/bold blue]")
-        try:
-            analyzer = VideoAnalyzer(console=console)
-            console.print("[green]✅ Initialization complete.[/green]")
-
-            console.print("\n[bold blue]Step 2: Starting Full Video Analysis...[/bold blue]")
-            
-            def test_callback(p, s):
-                console.print(f"  [yellow]Progress: {int(p)}% - {s}[/yellow]")
-            
-            analysis_results = await analyzer.analyze(test_video_path, test_callback)
-            
-            console.print("\n[bold blue]Step 3: Analysis Complete. Results:[/bold blue]")
-            json_str = json.dumps(analysis_results, indent=2)
-            syntax = Syntax(json_str, "json", theme="monokai", line_numbers=True)
-            console.print(Panel(syntax, title="[bold green]📊 Final Analysis Output (JSON)[/bold green]", border_style="green"))
-
-        except Exception as e:
-            console.print(Panel(f"[bold red]An error occurred during the test:[/bold red]\n{e}", border_style="red"))
-
-        console.print(Panel("[bold magenta]🏁 Test complete 🏁[/bold magenta]", border_style="green"))
-
-    asyncio.run(test_analyzer())

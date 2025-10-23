@@ -1,0 +1,20 @@
+services:
+  neo4j:
+    # UPGRADE: Changed from 4.4 to 5.18 to support vector indexes
+    image: neo4j:5.18
+    container_name: video_agent_db
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    environment:
+      # This format is correct for Neo4j 5.x
+      - NEO4J_AUTH=neo4j/932004debu
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      # Allow file imports for APOC if needed in the future
+      - NEO4J_apoc_import_file_enabled=true
+
+volumes:
+  neo4j_data:

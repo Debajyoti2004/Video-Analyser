@@ -8,9 +8,10 @@ moviepy
 google-generativeai
 rich
 fpdf
-mcp-fast-mcp
 langgraph
+langchain
 langchain-core
+langchain-google-genai
 chromadb
 numpy
 sse-starlette
@@ -19,3 +20,5 @@ sentence-transformers
 cohere
 ultralytics
 easyocr
+pydantic
+wget

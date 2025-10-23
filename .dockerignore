@@ -1,0 +1,46 @@
+# --- Docker & Git ---
+# Ignore the Dockerfile and docker-compose file themselves
+Dockerfile
+docker-compose.yml
+
+# Ignore the git directory
+.git
+.gitignore
+
+# --- Python Virtual Environments ---
+# This is the single biggest cause of large build contexts
+venv/
+env/
+.venv/
+.env/
+
+# --- Python Cache & Compiled Files ---
+__pycache__/
+*.pyc
+*.egg-info/
+
+# --- IDE & Editor Configuration ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- User-Generated & Tool-Generated Content ---
+# These are created at runtime and should not be part of the image
+uploads/
+temp_audio/
+snapshots/
+clips/
+reports/
+
+# --- Local Databases ---
+chroma_db/
+neo4j_data/
+
+# --- Large Media & Models ---
+# The video and models should not be in the build context
+*.mp4
+*.pt
+
+# --- Secrets ---
+# The .env file should never be copied into an image
+.env

@@ -5,7 +5,9 @@ load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-NEO4J_URI = os.getenv("NEO4J_URI")
+EMBEDDING_GOOGLE_API_KEY=os.getenv("EMBEDDING_GOOGLE_API_KEY")
+
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
 NEO4J_USER = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
